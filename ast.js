@@ -2,6 +2,9 @@ const {
   Lexer,
   constant: { INTEGER, PLUS, MULTIPLE, MINUS, RPAREN, LPAREN, DIVISION }
 } = require('./lib/Lexer')
+
+const OPERATOR_TYPE = 'NODE_OPERATOR'
+const NUM_TYPE = 'NODE_NUMBER'
 /**
  *  基类
  */
@@ -15,6 +18,7 @@ class BindOp extends AST {
     this.left = left
     this.token = op
     this.right = right
+    this.type = OPERATOR_TYPE
   }
 }
 
@@ -26,6 +30,7 @@ class Num extends AST {
     super()
     this.token = token
     this.value = token.value
+    this.type = NUM_TYPE
   }
 }
 
@@ -102,17 +107,17 @@ class Parser {
 
 class NodeVisitor {
   //递归后续遍历
-  recursionVisit(root, callback) {
+  recursionPostorder(root, callback) {
     if (!root) {
       return
     }
-    this.visit(root.left)
-    this.visit(root.right)
+    this.recursionPostorder(root.left)
+    this.recursionPostorder(root.right)
     callback(root.token)
   }
 
   //非递归后续遍历
-  visit(root, callback) {
+  postorder(root, callback) {
     let stack = []
     let node = root
     let lastVisit = root
@@ -133,9 +138,33 @@ class NodeVisitor {
     }
   }
 }
-class Interpreter {
-  // 从ast求算数表达式的值
-  interpret(ast) {}
+class Interpreter extends NodeVisitor {
+  visit(node) {
+    if (node.type === OPERATOR_TYPE) {
+      return this.visitOp(node)
+    } else if (node.type === NUM_TYPE) {
+      return this.visitNum(node)
+    }
+  }
+  visitOp(node) {
+    if (node.token.type === MULTIPLE) {
+      return this.visit(node.left) * this.visit(node.right)
+    } else if (node.token.type === DIVISION) {
+      return this.visit(node.left) / this.visit(node.right)
+    } else if (node.token.type === PLUS) {
+      return this.visit(node.left) + this.visit(node.right)
+    } else if (node.token.type === MINUS) {
+      return this.visit(node.left) - this.visit(node.right)
+    }
+  }
+  visitNum(node) {
+    return node.token.value
+  }
+  interpret(node) {
+    let r = this.visit(node)
+    console.log(r)
+    return r
+  }
 }
-let ast = new Parser('(1+2) * (3*3 + 1)').parse()
-console.log(ast)
+let ast = new Parser('(1+2 + 2 ) * (3*3 + 1) / 5 + 1 + 2*7').parse()
+new Interpreter().interpret(ast)
